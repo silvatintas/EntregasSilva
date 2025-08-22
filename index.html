@@ -207,6 +207,7 @@
         
         // Use a configuração global se disponível, senão use a sua
         const finalFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'silva-tintas-default';
 
         // Inicialização do Firebase
         const app = initializeApp(finalFirebaseConfig);
@@ -379,6 +380,9 @@
             const assignDeliveryBtn = document.getElementById('assign-delivery-btn');
             const addDriverBtn = document.getElementById('add-driver-btn');
 
+            const deliveriesCol = collection(db, `artifacts/${appId}/public/data/deliveries`);
+            const driversCol = collection(db, `artifacts/${appId}/public/data/drivers`);
+
             createDeliveryBtn.onclick = async () => {
                 const date = deliveryDateInput.value;
                 if (!date) {
@@ -387,7 +391,7 @@
                 }
                 const dateObj = new Date(date + 'T00:00:00');
                 
-                const q = query(collection(db, "deliveries"), where("creationDay", "==", date));
+                const q = query(deliveriesCol, where("creationDay", "==", date));
                 const querySnapshot = await getDocs(q);
                 const deliveryNumber = querySnapshot.size + 1;
                 const deliveryName = `Entrega #${deliveryNumber} - ${dayjs(dateObj).format('DD/MM/YYYY')}`;
@@ -404,7 +408,7 @@
                     endTime: null,
                 };
                 
-                const docRef = await addDoc(collection(db, "deliveries"), deliveryDoc);
+                const docRef = await addDoc(deliveriesCol, deliveryDoc);
                 activeDeliveryId = docRef.id;
                 newDeliveryTitle.textContent = deliveryName;
                 newDeliverySection.classList.remove('hidden');
@@ -416,7 +420,7 @@
                 const locationInput = document.getElementById('new-location');
                 const address = locationInput.value.trim();
                 if (address) {
-                    const deliveryRef = doc(db, "deliveries", activeDeliveryId);
+                    const deliveryRef = doc(deliveriesCol, activeDeliveryId);
                     const deliverySnap = await getDoc(deliveryRef);
                     if (deliverySnap.exists()) {
                         const newLocations = [...deliverySnap.data().locations, { address, status: 'pending', completedAt: null, timeToNextMinutes: null }];
@@ -437,7 +441,7 @@
                         'Designar Entrega',
                         `Você tem certeza que deseja designar esta entrega para ${driverName}?`,
                         async () => {
-                            const deliveryRef = doc(db, "deliveries", activeDeliveryId);
+                            const deliveryRef = doc(deliveriesCol, activeDeliveryId);
                             await updateDoc(deliveryRef, { 
                                 driverId, 
                                 driverName, 
@@ -455,12 +459,12 @@
                 const driverNameInput = document.getElementById('driver-name');
                 const name = driverNameInput.value.trim();
                 if (name) {
-                    await addDoc(collection(db, "drivers"), { name });
+                    await addDoc(driversCol, { name });
                     driverNameInput.value = '';
                 }
             };
 
-            const unsubDrivers = onSnapshot(collection(db, "drivers"), (snapshot) => {
+            const unsubDrivers = onSnapshot(driversCol, (snapshot) => {
                 const driversList = document.getElementById('drivers-list');
                 const assignDriverSelect = document.getElementById('assign-driver');
                 driversList.innerHTML = '';
@@ -477,7 +481,7 @@
             }, (error) => console.error("Erro no listener de entregadores: ", error));
             unsubscribeListeners.push(unsubDrivers);
 
-            const unsubDeliveries = onSnapshot(query(collection(db, "deliveries"), where("creationDay", "==", getTodayDateString())), (snapshot) => {
+            const unsubDeliveries = onSnapshot(query(deliveriesCol, where("creationDay", "==", getTodayDateString())), (snapshot) => {
                 const triagemDeliveriesList = document.getElementById('triagem-deliveries-list');
                 triagemDeliveriesList.innerHTML = '';
                 if(snapshot.empty) {
@@ -513,7 +517,7 @@
             unsubscribeListeners.push(unsubDeliveries);
             
             if (activeDeliveryId) {
-                const unsubActiveDelivery = onSnapshot(doc(db, "deliveries", activeDeliveryId), (doc) => {
+                const unsubActiveDelivery = onSnapshot(doc(deliveriesCol, activeDeliveryId), (doc) => {
                     if(doc.exists()){
                         const delivery = doc.data();
                         const locationsDiv = document.getElementById('new-delivery-locations');
@@ -533,7 +537,10 @@
             const myDeliverySection = document.getElementById('my-delivery-section');
             const noDeliveryMessage = document.getElementById('no-delivery-message');
             
-            const unsubDrivers = onSnapshot(collection(db, "drivers"), (snapshot) => {
+            const deliveriesCol = collection(db, `artifacts/${appId}/public/data/deliveries`);
+            const driversCol = collection(db, `artifacts/${appId}/public/data/drivers`);
+            
+            const unsubDrivers = onSnapshot(driversCol, (snapshot) => {
                 const currentDriverId = driverSelect.value;
                 driverSelect.innerHTML = '<option value="">Selecione seu nome para ver a entrega</option>';
                 snapshot.forEach(doc => {
@@ -550,7 +557,7 @@
                 }
                 
                 if (currentDriverId) {
-                    const q = query(collection(db, "deliveries"), 
+                    const q = query(deliveriesCol, 
                         where("driverId", "==", currentDriverId),
                         where("status", "==", "in-progress")
                     );
@@ -579,7 +586,7 @@
                                                 ${delivery.locations[index-1]?.timeToNextMinutes ? `<p class="text-xs text-blue-500">Tempo do trecho anterior: ${delivery.locations[index-1].timeToNextMinutes} min</p>` : ''}
                                             </div>
                                         </div>
-                                        ${canCheck ? `<button data-doc-id="${deliveryDoc.id}" data-index="${index}" class="check-location-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Check</button>` : ''}
+                                        ${canCheck ? `<button data-doc-id="${deliveryDoc.id}" class="check-location-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Check</button>` : ''}
                                     </div>
                                 `;
                             });
@@ -600,12 +607,13 @@
         function initAdminView() {
             const dateFilter = document.getElementById('admin-date-filter');
             dateFilter.value = getTodayDateString();
+            const deliveriesCol = collection(db, `artifacts/${appId}/public/data/deliveries`);
 
             function loadAdminData() {
                 unsubscribeAll();
                 const selectedDate = dateFilter.value;
                 
-                const q = query(collection(db, "deliveries"), where("creationDay", "==", selectedDate));
+                const q = query(deliveriesCol, where("creationDay", "==", selectedDate));
 
                 const unsub = onSnapshot(q, (snapshot) => {
                     const deliveries = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
@@ -661,7 +669,7 @@
                 unsubscribeListeners.push(unsub);
 
                 const thirtyDaysAgo = dayjs().subtract(30, 'day').format('YYYY-MM-DD');
-                const qLocations = query(collection(db, "deliveries"), where("creationDay", ">=", thirtyDaysAgo));
+                const qLocations = query(deliveriesCol, where("creationDay", ">=", thirtyDaysAgo));
                 getDocs(qLocations).then(snapshot => {
                     const locationCounts = {};
                     snapshot.forEach(doc => {
@@ -694,6 +702,9 @@
 
         // --- LISTENER DE EVENTOS GLOBAIS ---
         document.addEventListener('click', async (e) => {
+            const deliveriesCol = collection(db, `artifacts/${appId}/public/data/deliveries`);
+            const driversCol = collection(db, `artifacts/${appId}/public/data/drivers`);
+
             // Botão de check na entrega
             if (e.target && e.target.classList.contains('check-location-btn')) {
                 const btn = e.target;
@@ -702,7 +713,7 @@
                 const docId = btn.dataset.docId;
                 const index = parseInt(btn.dataset.index);
                 
-                const deliveryRef = doc(db, "deliveries", docId);
+                const deliveryRef = doc(deliveriesCol, docId);
                 const deliverySnap = await getDoc(deliveryRef);
                 if (deliverySnap.exists()) {
                     const delivery = deliverySnap.data();
@@ -737,7 +748,7 @@
                     'Excluir Entregador',
                     `Você tem certeza que deseja excluir ${driverName}? Esta ação não pode ser desfeita.`,
                     async () => {
-                        await deleteDoc(doc(db, "drivers", driverId));
+                        await deleteDoc(doc(driversCol, driverId));
                     }
                 );
             }
