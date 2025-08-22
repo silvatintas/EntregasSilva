@@ -139,6 +139,7 @@
                 </div>
                 <div id="my-delivery-section" class="hidden bg-white p-6 rounded-xl shadow-md space-y-4">
                     <h3 class="text-2xl font-bold brand-color" id="my-delivery-title">Minha Entrega</h3>
+                    <div id="delivery-controls" class="text-center space-y-2"></div>
                     <div id="my-delivery-locations" class="space-y-3"></div>
                 </div>
                  <div id="no-delivery-message" class="text-center p-10 bg-white rounded-xl shadow-md">
@@ -233,6 +234,7 @@
         let activeDeliveryId = null;
         let isEditing = false;
         let sortable = null;
+        let notificationPermission = 'default';
         let unsubscribeListeners = [];
 
         // Configuração do Day.js
@@ -249,9 +251,28 @@
         const logoutButton = document.getElementById('logout-button');
         const headerTitle = document.getElementById('header-title');
         const currentUserId = document.getElementById('current-user-id');
+        
+        // --- LÓGICA DE NOTIFICAÇÃO ---
+        function initNotifications() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    notificationPermission = permission;
+                    if (permission === 'granted') {
+                        console.log('Permissão para notificações concedida.');
+                    } else {
+                        console.log('Permissão para notificações negada.');
+                    }
+                });
+            }
+        }
+
+        function sendNotification(title, body) {
+            if (notificationPermission === 'granted') {
+                new Notification(title, { body });
+            }
+        }
 
         // --- LÓGICA DE AUTENTICAÇÃO E ROTEAMENTO ---
-
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
@@ -260,6 +281,7 @@
                 
                 loginSubmitBtn.disabled = false;
                 loginSubmitBtn.textContent = 'Entrar';
+                initNotifications();
 
                 if(currentRole) {
                     showView(currentRole);
@@ -406,7 +428,7 @@
                     name: deliveryName,
                     creationDate: serverTimestamp(),
                     creationDay: date,
-                    status: 'pending',
+                    status: 'pending', // pending, assigned, in-progress, completed
                     driverId: null,
                     driverName: null,
                     locations: [],
@@ -426,7 +448,7 @@
                     const deliveryRef = doc(deliveriesCol, activeDeliveryId);
                     const deliverySnap = await getDoc(deliveryRef);
                     if (deliverySnap.exists()) {
-                        const newLocations = [...deliverySnap.data().locations, { address, status: 'pending', completedAt: null, timeToNextMinutes: null }];
+                        const newLocations = [...deliverySnap.data().locations, { address, status: 'pending', completedAt: null }];
                         await updateDoc(deliveryRef, { locations: newLocations });
                         locationInput.value = '';
                     }
@@ -455,8 +477,7 @@
                     return {
                         address: el.dataset.address,
                         status: 'pending',
-                        completedAt: null,
-                        timeToNextMinutes: null
+                        completedAt: null
                     }
                 });
 
@@ -468,9 +489,14 @@
                     locations: updatedLocationsOrder
                 };
 
-                if(driverId && deliverySnap.exists() && deliverySnap.data().status === 'pending') {
-                    updateData.status = 'in-progress';
-                    updateData.startTime = serverTimestamp();
+                if (deliverySnap.exists()) {
+                    const oldDriverId = deliverySnap.data().driverId;
+                    if(driverId && oldDriverId !== driverId) {
+                        updateData.status = 'assigned';
+                        sendNotification('Nova Entrega!', `Uma nova rota foi designada para ${driverName}.`);
+                    } else if (!driverId) {
+                        updateData.status = 'pending';
+                    }
                 }
 
                 await updateDoc(deliveryRef, updateData);
@@ -504,11 +530,15 @@
                 if(snapshot.empty) {
                     triagemDeliveriesList.innerHTML = '<p class="text-gray-500">Nenhuma entrega para hoje ainda.</p>';
                 }
+                const statusMap = {
+                    pending: { text: 'Pendente', class: 'text-gray-500' },
+                    assigned: { text: 'Designada', class: 'text-yellow-600' },
+                    'in-progress': { text: 'Em Andamento', class: 'text-blue-600' },
+                    completed: { text: 'Concluída', class: 'text-green-600' }
+                };
                 snapshot.docs.sort((a, b) => a.data().name.localeCompare(b.data().name)).forEach(doc => {
                     const delivery = doc.data();
-                    const isEditable = delivery.status === 'pending';
-                    const statusClass = delivery.status === 'completed' ? 'text-green-600' : (delivery.status === 'in-progress' ? 'text-blue-600' : 'text-yellow-600');
-                    const statusText = delivery.status === 'completed' ? 'Concluída' : (delivery.status === 'in-progress' ? 'Em Andamento' : 'Pendente');
+                    const statusInfo = statusMap[delivery.status] || statusMap.pending;
 
                     let deliveryHTML = `
                         <div class="p-4 border rounded-lg">
@@ -516,10 +546,10 @@
                                 <div class="mb-2 sm:mb-0">
                                     <h4 class="font-bold">${delivery.name}</h4>
                                     <p class="text-sm">Entregador: ${delivery.driverName || 'N/A'}</p>
-                                    <p class="text-sm"><span class="font-semibold ${statusClass}">${statusText}</span></p>
+                                    <p class="text-sm"><span class="font-semibold ${statusInfo.class}">${statusInfo.text}</span></p>
                                 </div>
                                 <div class="flex gap-2 self-end sm:self-center">
-                                    ${isEditable ? `<button data-delivery-id="${doc.id}" class="edit-delivery-btn bg-yellow-500 text-white text-xs font-bold py-1 px-2 rounded">Editar</button>` : ''}
+                                    ${delivery.status !== 'in-progress' && delivery.status !== 'completed' ? `<button data-delivery-id="${doc.id}" class="edit-delivery-btn bg-yellow-500 text-white text-xs font-bold py-1 px-2 rounded">Editar</button>` : ''}
                                     <button data-delivery-id="${doc.id}" class="delete-delivery-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded">Excluir</button>
                                 </div>
                             </div>
@@ -528,6 +558,7 @@
                                     <div class="flex items-center gap-2">
                                         <span class="${loc.status === 'completed' ? 'text-green-500' : ''}">${loc.status === 'completed' ? '✓' : '•'}</span>
                                         <span>${loc.address}</span>
+                                        ${loc.completedAt ? `<span class="text-xs text-gray-400">- ${dayjs(loc.completedAt.toDate()).format('HH:mm')}</span>` : ''}
                                     </div>
                                 `).join('')}
                             </div>
@@ -633,7 +664,7 @@
                 if (currentDriverId) {
                     const q = query(deliveriesCol, 
                         where("driverId", "==", currentDriverId),
-                        where("status", "==", "in-progress")
+                        where("status", "in", ["assigned", "in-progress"])
                     );
                     const unsubDelivery = onSnapshot(q, (snapshot) => {
                         if (snapshot.empty) {
@@ -642,13 +673,24 @@
                         } else {
                             const deliveryDoc = snapshot.docs[0];
                             const delivery = deliveryDoc.data();
+                            const deliveryControls = document.getElementById('delivery-controls');
+                            deliveryControls.innerHTML = '';
+
                             document.getElementById('my-delivery-title').textContent = delivery.name;
                             const locationsDiv = document.getElementById('my-delivery-locations');
                             locationsDiv.innerHTML = '';
                             
+                            const allCompleted = delivery.locations.every(l => l.status === 'completed');
+
+                            if (delivery.status === 'assigned') {
+                                deliveryControls.innerHTML = `<button data-doc-id="${deliveryDoc.id}" class="start-delivery-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">Iniciar Entrega</button>`;
+                            } else if (delivery.status === 'in-progress' && allCompleted && delivery.locations.length > 0) {
+                                deliveryControls.innerHTML = `<button data-doc-id="${deliveryDoc.id}" class="finish-delivery-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg">Finalizar Entrega</button>`;
+                            }
+
                             delivery.locations.forEach((loc, index) => {
                                 const isCompleted = loc.status === 'completed';
-                                const canCheck = !isCompleted && (index === 0 || delivery.locations[index - 1].status === 'completed');
+                                const canCheck = !isCompleted && delivery.status === 'in-progress' && (index === 0 || delivery.locations[index - 1].status === 'completed');
                                 
                                 locationsDiv.innerHTML += `
                                     <div class="flex items-center justify-between p-3 rounded-lg ${isCompleted ? 'bg-green-100' : 'bg-gray-100'}">
@@ -656,8 +698,7 @@
                                             <span class="text-xl font-bold ${isCompleted ? 'text-green-500' : 'text-gray-400'}">${index + 1}</span>
                                             <div>
                                                 <p class="font-semibold ${isCompleted ? 'line-through' : ''}">${loc.address}</p>
-                                                ${isCompleted && loc.completedAt ? `<p class="text-xs text-gray-500">Concluído ${dayjs(loc.completedAt.toDate()).fromNow()}</p>` : ''}
-                                                ${delivery.locations[index-1]?.timeToNextMinutes ? `<p class="text-xs text-blue-500">Tempo do trecho anterior: ${delivery.locations[index-1].timeToNextMinutes} min</p>` : ''}
+                                                ${isCompleted && loc.completedAt ? `<p class="text-xs text-gray-500">Concluído ${dayjs(loc.completedAt.toDate()).fromNow()} (${dayjs(loc.completedAt.toDate()).format('HH:mm')})</p>` : ''}
                                             </div>
                                         </div>
                                         ${canCheck ? `<button data-doc-id="${deliveryDoc.id}" data-index="${index}" class="check-location-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Check</button>` : ''}
@@ -792,26 +833,26 @@
                 if (deliverySnap.exists()) {
                     const delivery = deliverySnap.data();
                     const updatedLocations = [...delivery.locations];
-                    const now = new Date();
                     updatedLocations[index].status = 'completed';
-                    updatedLocations[index].completedAt = now;
-
-                    if (index > 0 && updatedLocations[index - 1].completedAt) {
-                        const prevTime = updatedLocations[index - 1].completedAt.toDate ? updatedLocations[index - 1].completedAt.toDate() : new Date(updatedLocations[index - 1].completedAt);
-                        const diffMinutes = Math.round((now - prevTime) / (1000 * 60));
-                        updatedLocations[index - 1].timeToNextMinutes = diffMinutes;
-                    }
-
-                    const allCompleted = updatedLocations.every(l => l.status === 'completed');
+                    updatedLocations[index].completedAt = serverTimestamp();
                     
-                    const updatePayload = { locations: updatedLocations };
-                    if (allCompleted) {
-                        updatePayload.status = 'completed';
-                        updatePayload.endTime = serverTimestamp();
-                    }
-                    
-                    await updateDoc(deliveryRef, updatePayload);
+                    await updateDoc(deliveryRef, { locations: updatedLocations });
+                    sendNotification(`Check em ${updatedLocations[index].address}`, `Entrega de ${delivery.driverName}`);
                 }
+            }
+            
+            // Botão Iniciar Entrega
+            if (e.target && e.target.classList.contains('start-delivery-btn')) {
+                const docId = e.target.dataset.docId;
+                const deliveryRef = doc(deliveriesCol, docId);
+                await updateDoc(deliveryRef, { status: 'in-progress', startTime: serverTimestamp() });
+            }
+            
+            // Botão Finalizar Entrega
+            if (e.target && e.target.classList.contains('finish-delivery-btn')) {
+                const docId = e.target.dataset.docId;
+                const deliveryRef = doc(deliveriesCol, docId);
+                await updateDoc(deliveryRef, { status: 'completed', endTime: serverTimestamp() });
             }
 
             // Botão de excluir entregador
