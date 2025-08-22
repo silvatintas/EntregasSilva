@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/relativeTime.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/locale/pt-br.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .brand-color { color: #003366; }
@@ -19,6 +20,13 @@
         .content-view { display: none; }
         .visible { display: block; }
         .hidden { display: none; }
+        .sortable-ghost {
+            background: #c0e2ff;
+            opacity: 0.5;
+        }
+        .sortable-chosen {
+            cursor: grabbing;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -70,18 +78,20 @@
             <!-- View da Triagem -->
             <div id="triagem-view" class="content-view space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Coluna de Criação -->
+                    <!-- Coluna de Criação/Edição -->
                     <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
-                        <h3 class="text-xl font-bold brand-color border-b pb-2">Criar Nova Entrega</h3>
-                        <div class="flex items-end gap-4">
-                            <div class="flex-grow">
-                                <label for="delivery-date" class="block text-sm font-medium text-gray-700">Data da Entrega</label>
-                                <input type="date" id="delivery-date" class="mt-1 w-full p-2 border rounded-lg">
+                        <h3 id="form-title" class="text-xl font-bold brand-color border-b pb-2">Criar Nova Entrega</h3>
+                        <div id="create-section">
+                            <div class="flex items-end gap-4">
+                                <div class="flex-grow">
+                                    <label for="delivery-date" class="block text-sm font-medium text-gray-700">Data da Entrega</label>
+                                    <input type="date" id="delivery-date" class="mt-1 w-full p-2 border rounded-lg">
+                                </div>
+                                <button id="create-delivery-btn" class="brand-bg text-white font-semibold py-2 px-4 rounded-lg h-10">Criar Rota</button>
                             </div>
-                            <button id="create-delivery-btn" class="brand-bg text-white font-semibold py-2 px-4 rounded-lg h-10">Criar Rota</button>
                         </div>
-                        <div id="new-delivery-section" class="hidden space-y-4">
-                            <h4 id="new-delivery-title" class="font-semibold text-lg"></h4>
+                        <div id="edit-section" class="hidden space-y-4">
+                            <h4 id="edit-delivery-title" class="font-semibold text-lg"></h4>
                             <div>
                                 <label for="new-location" class="block text-sm font-medium text-gray-700">Adicionar Local</label>
                                 <div class="flex gap-2 mt-1">
@@ -91,12 +101,15 @@
                             </div>
                              <div>
                                 <label for="assign-driver" class="block text-sm font-medium text-gray-700">Designar Entregador</label>
-                                <div class="flex gap-2 mt-1">
-                                    <select id="assign-driver" class="flex-grow p-2 border rounded-lg"></select>
-                                    <button id="assign-delivery-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold p-2 rounded-lg">Designar</button>
-                                </div>
+                                <select id="assign-driver" class="w-full p-2 border rounded-lg mt-1"></select>
                             </div>
-                            <div id="new-delivery-locations" class="space-y-2"></div>
+                            <div id="edit-locations-list" class="space-y-2">
+                                <!-- Locais para edição serão inseridos aqui -->
+                            </div>
+                             <div class="flex justify-end gap-2 mt-4">
+                                <button id="cancel-edit-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+                                <button id="save-changes-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg">Salvar Alterações</button>
+                            </div>
                         </div>
                     </div>
                     <!-- Coluna de Entregadores -->
@@ -218,8 +231,9 @@
         let currentUser = null;
         let currentRole = null;
         let activeDeliveryId = null;
+        let isEditing = false;
+        let sortable = null;
         let unsubscribeListeners = [];
-        let isAuthReady = false;
 
         // Configuração do Day.js
         dayjs.extend(dayjs_plugin_relativeTime);
@@ -243,7 +257,6 @@
                 currentUser = user;
                 currentUserId.textContent = `ID: ${user.uid.substring(0, 8)}`;
                 console.log("Usuário autenticado:", user.uid);
-                isAuthReady = true;
                 
                 loginSubmitBtn.disabled = false;
                 loginSubmitBtn.textContent = 'Entrar';
@@ -278,10 +291,8 @@
                 loginError.textContent = 'Usuário ou senha incorretos.';
             }
             
-            if (role && isAuthReady) {
+            if (role) {
                 showView(role);
-            } else if (role && !isAuthReady) {
-                loginError.textContent = 'Aguardando autenticação...';
             }
         });
 
@@ -297,10 +308,6 @@
         });
 
         function showView(role) {
-            if (!isAuthReady) {
-                console.warn("Tentativa de mostrar view antes da autenticação estar pronta.");
-                return;
-            }
             currentRole = role;
             loginView.style.display = 'none';
             appHeader.style.display = 'flex';
@@ -374,11 +381,10 @@
             deliveryDateInput.value = getTodayDateString();
 
             const createDeliveryBtn = document.getElementById('create-delivery-btn');
-            const newDeliverySection = document.getElementById('new-delivery-section');
-            const newDeliveryTitle = document.getElementById('new-delivery-title');
             const addLocationBtn = document.getElementById('add-location-btn');
-            const assignDeliveryBtn = document.getElementById('assign-delivery-btn');
             const addDriverBtn = document.getElementById('add-driver-btn');
+            const saveChangesBtn = document.getElementById('save-changes-btn');
+            const cancelEditBtn = document.getElementById('cancel-edit-btn');
 
             const deliveriesCol = collection(db, `artifacts/${appId}/public/data/deliveries`);
             const driversCol = collection(db, `artifacts/${appId}/public/data/drivers`);
@@ -409,10 +415,7 @@
                 };
                 
                 const docRef = await addDoc(deliveriesCol, deliveryDoc);
-                activeDeliveryId = docRef.id;
-                newDeliveryTitle.textContent = deliveryName;
-                newDeliverySection.classList.remove('hidden');
-                document.getElementById('new-delivery-locations').innerHTML = '';
+                startEditingDelivery(docRef.id);
             };
 
             addLocationBtn.onclick = async () => {
@@ -429,31 +432,6 @@
                     }
                 }
             };
-
-            assignDeliveryBtn.onclick = async () => {
-                if (!activeDeliveryId) return;
-                const driverSelect = document.getElementById('assign-driver');
-                const driverId = driverSelect.value;
-                const driverName = driverSelect.options[driverSelect.selectedIndex].text;
-
-                if (driverId) {
-                    showConfirmationModal(
-                        'Designar Entrega',
-                        `Você tem certeza que deseja designar esta entrega para ${driverName}?`,
-                        async () => {
-                            const deliveryRef = doc(deliveriesCol, activeDeliveryId);
-                            await updateDoc(deliveryRef, { 
-                                driverId, 
-                                driverName, 
-                                status: 'in-progress',
-                                startTime: serverTimestamp()
-                            });
-                            newDeliverySection.classList.add('hidden');
-                            activeDeliveryId = null;
-                        }
-                    );
-                }
-            };
             
             addDriverBtn.onclick = async () => {
                 const driverNameInput = document.getElementById('driver-name');
@@ -462,6 +440,44 @@
                     await addDoc(driversCol, { name });
                     driverNameInput.value = '';
                 }
+            };
+            
+            saveChangesBtn.onclick = async () => {
+                if (!activeDeliveryId) return;
+
+                const driverSelect = document.getElementById('assign-driver');
+                const driverId = driverSelect.value;
+                const driverName = driverId ? driverSelect.options[driverSelect.selectedIndex].text : null;
+                
+                const locationsContainer = document.getElementById('edit-locations-list');
+                const locationElements = locationsContainer.querySelectorAll('[data-address]');
+                const updatedLocationsOrder = Array.from(locationElements).map(el => {
+                    return {
+                        address: el.dataset.address,
+                        status: 'pending',
+                        completedAt: null,
+                        timeToNextMinutes: null
+                    }
+                });
+
+                const deliveryRef = doc(deliveriesCol, activeDeliveryId);
+                const updateData = {
+                    driverId,
+                    driverName,
+                    locations: updatedLocationsOrder
+                };
+
+                if(driverId && (await getDoc(deliveryRef)).data().status === 'pending') {
+                    updateData.status = 'in-progress';
+                    updateData.startTime = serverTimestamp();
+                }
+
+                await updateDoc(deliveryRef, updateData);
+                resetTriagemForm();
+            };
+
+            cancelEditBtn.onclick = () => {
+                resetTriagemForm();
             };
 
             const unsubDrivers = onSnapshot(driversCol, (snapshot) => {
@@ -489,17 +505,22 @@
                 }
                 snapshot.docs.sort((a, b) => a.data().name.localeCompare(b.data().name)).forEach(doc => {
                     const delivery = doc.data();
+                    const isEditable = delivery.status === 'pending';
                     const statusClass = delivery.status === 'completed' ? 'text-green-600' : (delivery.status === 'in-progress' ? 'text-blue-600' : 'text-yellow-600');
                     const statusText = delivery.status === 'completed' ? 'Concluída' : (delivery.status === 'in-progress' ? 'Em Andamento' : 'Pendente');
 
                     let deliveryHTML = `
                         <div class="p-4 border rounded-lg">
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-start">
                                 <div>
                                     <h4 class="font-bold">${delivery.name}</h4>
                                     <p class="text-sm">Entregador: ${delivery.driverName || 'N/A'}</p>
+                                    <p class="text-sm"><span class="font-semibold ${statusClass}">${statusText}</span></p>
                                 </div>
-                                <span class="font-semibold ${statusClass}">${statusText}</span>
+                                <div class="flex gap-2">
+                                    ${isEditable ? `<button data-delivery-id="${doc.id}" class="edit-delivery-btn bg-yellow-500 text-white text-xs font-bold py-1 px-2 rounded">Editar</button>` : ''}
+                                    <button data-delivery-id="${doc.id}" class="delete-delivery-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded">Excluir</button>
+                                </div>
                             </div>
                             <div class="mt-2 text-sm text-gray-600">
                                 ${delivery.locations.map(loc => `
@@ -516,20 +537,75 @@
             }, (error) => console.error("Erro no listener de entregas (triagem): ", error));
             unsubscribeListeners.push(unsubDeliveries);
             
-            if (activeDeliveryId) {
+            if (activeDeliveryId && isEditing) {
                 const unsubActiveDelivery = onSnapshot(doc(deliveriesCol, activeDeliveryId), (doc) => {
                     if(doc.exists()){
-                        const delivery = doc.data();
-                        const locationsDiv = document.getElementById('new-delivery-locations');
-                        locationsDiv.innerHTML = '';
-                        delivery.locations.forEach(loc => {
-                            locationsDiv.innerHTML += `<div class="p-2 bg-gray-100 rounded">${loc.address}</div>`;
-                        });
+                        renderEditLocations(doc.data().locations);
                     }
                 }, (error) => console.error("Erro no listener de entrega ativa: ", error));
                 unsubscribeListeners.push(unsubActiveDelivery);
             }
         }
+        
+        async function startEditingDelivery(deliveryId) {
+            const deliveriesCol = collection(db, `artifacts/${appId}/public/data/deliveries`);
+            const deliveryRef = doc(deliveriesCol, deliveryId);
+            const deliverySnap = await getDoc(deliveryRef);
+
+            if (deliverySnap.exists()) {
+                const delivery = deliverySnap.data();
+                activeDeliveryId = deliveryId;
+                isEditing = true;
+
+                document.getElementById('form-title').textContent = 'Editando Entrega';
+                document.getElementById('create-section').classList.add('hidden');
+                document.getElementById('edit-section').classList.remove('hidden');
+                
+                document.getElementById('edit-delivery-title').textContent = delivery.name;
+                document.getElementById('assign-driver').value = delivery.driverId || '';
+                
+                renderEditLocations(delivery.locations);
+            }
+        }
+        
+        function renderEditLocations(locations) {
+            const locationsContainer = document.getElementById('edit-locations-list');
+            locationsContainer.innerHTML = '';
+            if (locations.length === 0) {
+                locationsContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum local adicionado.</p>';
+            } else {
+                 locations.forEach((loc, index) => {
+                    locationsContainer.innerHTML += `
+                        <div data-address="${loc.address}" class="flex items-center justify-between p-2 bg-gray-100 rounded-lg cursor-move">
+                            <span class="font-mono text-xs mr-2 text-gray-400">${index + 1}</span>
+                            <span class="flex-grow">${loc.address}</span>
+                            <button data-index="${index}" class="delete-location-btn text-red-500 hover:text-red-700 font-bold">&times;</button>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (sortable) sortable.destroy();
+            sortable = new Sortable(locationsContainer, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+            });
+        }
+
+        function resetTriagemForm() {
+            activeDeliveryId = null;
+            isEditing = false;
+            if (sortable) sortable.destroy();
+            sortable = null;
+
+            document.getElementById('form-title').textContent = 'Criar Nova Entrega';
+            document.getElementById('create-section').classList.remove('hidden');
+            document.getElementById('edit-section').classList.add('hidden');
+            document.getElementById('new-location').value = '';
+            document.getElementById('edit-locations-list').innerHTML = '';
+        }
+
 
         // --- VIEW DO ENTREGADOR ---
         function initEntregaView() {
@@ -586,7 +662,7 @@
                                                 ${delivery.locations[index-1]?.timeToNextMinutes ? `<p class="text-xs text-blue-500">Tempo do trecho anterior: ${delivery.locations[index-1].timeToNextMinutes} min</p>` : ''}
                                             </div>
                                         </div>
-                                        ${canCheck ? `<button data-doc-id="${deliveryDoc.id}" class="check-location-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Check</button>` : ''}
+                                        ${canCheck ? `<button data-doc-id="${deliveryDoc.id}" data-index="${index}" class="check-location-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Check</button>` : ''}
                                     </div>
                                 `;
                             });
@@ -751,6 +827,37 @@
                         await deleteDoc(doc(driversCol, driverId));
                     }
                 );
+            }
+            
+            // Botão de editar entrega
+            if (e.target && e.target.classList.contains('edit-delivery-btn')) {
+                const deliveryId = e.target.dataset.deliveryId;
+                startEditingDelivery(deliveryId);
+            }
+            
+            // Botão de excluir entrega
+            if (e.target && e.target.classList.contains('delete-delivery-btn')) {
+                const deliveryId = e.target.dataset.deliveryId;
+                showConfirmationModal(
+                    'Excluir Entrega',
+                    'Você tem certeza que deseja excluir esta entrega permanentemente?',
+                    async () => {
+                        await deleteDoc(doc(deliveriesCol, deliveryId));
+                        resetTriagemForm();
+                    }
+                );
+            }
+            
+            // Botão de excluir local da lista de edição
+            if (e.target && e.target.classList.contains('delete-location-btn')) {
+                const indexToRemove = parseInt(e.target.dataset.index);
+                const deliveryRef = doc(deliveriesCol, activeDeliveryId);
+                const deliverySnap = await getDoc(deliveryRef);
+                if (deliverySnap.exists()) {
+                    const locations = deliverySnap.data().locations;
+                    const newLocations = locations.filter((_, index) => index !== indexToRemove);
+                    await updateDoc(deliveryRef, { locations: newLocations });
+                }
             }
         });
 
