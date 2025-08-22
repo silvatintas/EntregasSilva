@@ -461,13 +461,14 @@
                 });
 
                 const deliveryRef = doc(deliveriesCol, activeDeliveryId);
+                const deliverySnap = await getDoc(deliveryRef);
                 const updateData = {
                     driverId,
                     driverName,
                     locations: updatedLocationsOrder
                 };
 
-                if(driverId && (await getDoc(deliveryRef)).data().status === 'pending') {
+                if(driverId && deliverySnap.exists() && deliverySnap.data().status === 'pending') {
                     updateData.status = 'in-progress';
                     updateData.startTime = serverTimestamp();
                 }
@@ -536,36 +537,31 @@
                 });
             }, (error) => console.error("Erro no listener de entregas (triagem): ", error));
             unsubscribeListeners.push(unsubDeliveries);
-            
-            if (activeDeliveryId && isEditing) {
-                const unsubActiveDelivery = onSnapshot(doc(deliveriesCol, activeDeliveryId), (doc) => {
-                    if(doc.exists()){
-                        renderEditLocations(doc.data().locations);
-                    }
-                }, (error) => console.error("Erro no listener de entrega ativa: ", error));
-                unsubscribeListeners.push(unsubActiveDelivery);
-            }
         }
         
         async function startEditingDelivery(deliveryId) {
             const deliveriesCol = collection(db, `artifacts/${appId}/public/data/deliveries`);
             const deliveryRef = doc(deliveriesCol, deliveryId);
-            const deliverySnap = await getDoc(deliveryRef);
+            
+            activeDeliveryId = deliveryId;
+            isEditing = true;
 
-            if (deliverySnap.exists()) {
-                const delivery = deliverySnap.data();
-                activeDeliveryId = deliveryId;
-                isEditing = true;
-
-                document.getElementById('form-title').textContent = 'Editando Entrega';
-                document.getElementById('create-section').classList.add('hidden');
-                document.getElementById('edit-section').classList.remove('hidden');
-                
-                document.getElementById('edit-delivery-title').textContent = delivery.name;
-                document.getElementById('assign-driver').value = delivery.driverId || '';
-                
-                renderEditLocations(delivery.locations);
-            }
+            document.getElementById('form-title').textContent = 'Editando Entrega';
+            document.getElementById('create-section').classList.add('hidden');
+            document.getElementById('edit-section').classList.remove('hidden');
+            
+            const unsubActiveDelivery = onSnapshot(deliveryRef, (doc) => {
+                if(doc.exists()){
+                    const delivery = doc.data();
+                    document.getElementById('edit-delivery-title').textContent = delivery.name;
+                    document.getElementById('assign-driver').value = delivery.driverId || '';
+                    renderEditLocations(delivery.locations);
+                } else {
+                    console.log("Documento sendo editado não existe mais.");
+                    resetTriagemForm();
+                }
+            }, (error) => console.error("Erro no listener de entrega ativa: ", error));
+            unsubscribeListeners.push(unsubActiveDelivery);
         }
         
         function renderEditLocations(locations) {
@@ -598,6 +594,8 @@
             isEditing = false;
             if (sortable) sortable.destroy();
             sortable = null;
+            unsubscribeAll(); // Limpa listeners, especialmente o da entrega ativa
+            initTriagemView(); // Reinicia a view para garantir que tudo está atualizado
 
             document.getElementById('form-title').textContent = 'Criar Nova Entrega';
             document.getElementById('create-section').classList.remove('hidden');
