@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silva Tintas Automotivas - Gestão de Entregas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/relativeTime.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/locale/pt-br.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .brand-color { color: #003366; }
+        .brand-bg { background-color: #003366; }
+        .brand-border { border-color: #003366; }
+        .content-view { display: none; }
+        .visible { display: block; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Container Principal -->
+    <div id="app-container" class="min-h-screen flex flex-col">
+
+        <!-- Header (Visível após o login) -->
+        <header id="app-header" class="bg-white shadow-md p-4 justify-between items-center hidden">
+            <div class="flex items-center space-x-4">
+                <div class="text-xl font-bold brand-color tracking-wide">SILVA TINTAS AUTOMOTIVAS</div>
+                <h1 id="header-title" class="text-xl font-bold brand-color"></h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="current-user-id" class="text-sm text-gray-500"></span>
+                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Sair
+                </button>
+            </div>
+        </header>
+
+        <!-- Tela de Login -->
+        <div id="login-view" class="flex-grow flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+                <div class="text-center mb-6">
+                    <h1 class="text-3xl font-bold brand-color tracking-wide">SILVA TINTAS</h1>
+                    <p class="text-sm text-gray-500">AUTOMOTIVAS</p>
+                </div>
+                <h2 class="text-2xl font-bold text-center brand-color mb-6">Sistema de Gestão de Entregas</h2>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
+                        <input type="text" id="username" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                        <input type="password" id="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <p id="login-error" class="text-red-500 text-sm mb-4 text-center"></p>
+                    <button type="submit" id="login-submit-btn" class="w-full brand-bg hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Conectando...
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Conteúdo das Views (Triagem, Entrega, Admin) -->
+        <main id="content-container" class="flex-grow p-4 md:p-6 lg:p-8 hidden">
+            <!-- View da Triagem -->
+            <div id="triagem-view" class="content-view space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Coluna de Criação -->
+                    <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+                        <h3 class="text-xl font-bold brand-color border-b pb-2">Criar Nova Entrega</h3>
+                        <div class="flex items-end gap-4">
+                            <div class="flex-grow">
+                                <label for="delivery-date" class="block text-sm font-medium text-gray-700">Data da Entrega</label>
+                                <input type="date" id="delivery-date" class="mt-1 w-full p-2 border rounded-lg">
+                            </div>
+                            <button id="create-delivery-btn" class="brand-bg text-white font-semibold py-2 px-4 rounded-lg h-10">Criar Rota</button>
+                        </div>
+                        <div id="new-delivery-section" class="hidden space-y-4">
+                            <h4 id="new-delivery-title" class="font-semibold text-lg"></h4>
+                            <div>
+                                <label for="new-location" class="block text-sm font-medium text-gray-700">Adicionar Local</label>
+                                <div class="flex gap-2 mt-1">
+                                    <input type="text" id="new-location" placeholder="Ex: Rua das Flores, 123" class="flex-grow p-2 border rounded-lg">
+                                    <button id="add-location-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold p-2 rounded-lg">Adicionar</button>
+                                </div>
+                            </div>
+                             <div>
+                                <label for="assign-driver" class="block text-sm font-medium text-gray-700">Designar Entregador</label>
+                                <div class="flex gap-2 mt-1">
+                                    <select id="assign-driver" class="flex-grow p-2 border rounded-lg"></select>
+                                    <button id="assign-delivery-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold p-2 rounded-lg">Designar</button>
+                                </div>
+                            </div>
+                            <div id="new-delivery-locations" class="space-y-2"></div>
+                        </div>
+                    </div>
+                    <!-- Coluna de Entregadores -->
+                    <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
+                        <h3 class="text-xl font-bold brand-color border-b pb-2">Gerenciar Entregadores</h3>
+                        <div>
+                            <label for="driver-name" class="block text-sm font-medium text-gray-700">Nome do Entregador</label>
+                            <div class="flex gap-2 mt-1">
+                                <input type="text" id="driver-name" placeholder="Ex: João Silva" class="flex-grow p-2 border rounded-lg">
+                                <button id="add-driver-btn" class="brand-bg text-white font-semibold p-2 rounded-lg">Adicionar</button>
+                            </div>
+                        </div>
+                        <div id="drivers-list" class="space-y-2"></div>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold brand-color border-b pb-2 mb-4">Entregas do Dia</h3>
+                    <div id="triagem-deliveries-list" class="space-y-4"></div>
+                </div>
+            </div>
+
+            <!-- View do Entregador -->
+            <div id="entrega-view" class="content-view space-y-6">
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold brand-color">Selecione seu Nome</h3>
+                    <select id="select-driver-profile" class="mt-2 w-full max-w-sm p-2 border rounded-lg"></select>
+                </div>
+                <div id="my-delivery-section" class="hidden bg-white p-6 rounded-xl shadow-md space-y-4">
+                    <h3 class="text-2xl font-bold brand-color" id="my-delivery-title">Minha Entrega</h3>
+                    <div id="my-delivery-locations" class="space-y-3"></div>
+                </div>
+                 <div id="no-delivery-message" class="text-center p-10 bg-white rounded-xl shadow-md">
+                    <p class="text-gray-500 text-lg">Nenhuma entrega designada para você no momento.</p>
+                </div>
+            </div>
+
+            <!-- View do Admin -->
+            <div id="admin-view" class="content-view space-y-8">
+                <div>
+                    <label for="admin-date-filter" class="font-semibold">Filtrar por data:</label>
+                    <input type="date" id="admin-date-filter" class="ml-2 p-2 border rounded-lg">
+                </div>
+                <!-- Cards de Métricas -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
+                        <h4 class="font-bold text-gray-600">Entregadores na Rua</h4>
+                        <p id="drivers-on-street" class="text-4xl font-bold brand-color">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
+                        <h4 class="font-bold text-gray-600">Entregas em Andamento</h4>
+                        <p id="deliveries-in-progress" class="text-4xl font-bold brand-color">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
+                        <h4 class="font-bold text-gray-600">Entregas Concluídas Hoje</h4>
+                        <p id="deliveries-completed-today" class="text-4xl font-bold brand-color">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
+                        <h4 class="font-bold text-gray-600">Tempo Médio por Trecho</h4>
+                        <p id="avg-time-per-leg" class="text-4xl font-bold brand-color">--</p>
+                    </div>
+                </div>
+                <!-- Visão Geral das Entregas -->
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold brand-color border-b pb-2 mb-4">Visão Geral das Entregas</h3>
+                    <div id="admin-deliveries-overview" class="space-y-4"></div>
+                </div>
+                <!-- Locais Mais Visitados -->
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-bold brand-color border-b pb-2 mb-4">Locais Mais Visitados (Últimos 30 dias)</h3>
+                    <div id="most-visited-locations" class="space-y-2"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 class="text-xl font-bold mb-4" id="modal-title">Confirmar Ação</h3>
+            <p id="modal-body">Você tem certeza?</p>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="modal-cancel-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+                <button id="modal-confirm-btn" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // Importações do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getFirestore, collection, doc, addDoc, getDocs, onSnapshot, 
+            updateDoc, query, where, serverTimestamp, getDoc, deleteDoc
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // Sua configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPisgGzruxqnXzf9hPlb05uCN3hMozt2s",
+            authDomain: "crm-silva-tintas.firebaseapp.com",
+            projectId: "crm-silva-tintas",
+            storageBucket: "crm-silva-tintas.appspot.com",
+            messagingSenderId: "37152653096",
+            appId: "1:37152653096:web:adac10c2ad4815d6abda1d",
+            measurementId: "G-2XC57V399B"
+        };
+        
+        // Use a configuração global se disponível, senão use a sua
+        const finalFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+
+        // Inicialização do Firebase
+        const app = initializeApp(finalFirebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // State da Aplicação
+        let currentUser = null;
+        let currentRole = null;
+        let activeDeliveryId = null;
+        let unsubscribeListeners = [];
+        let isAuthReady = false;
+
+        // Configuração do Day.js
+        dayjs.extend(dayjs_plugin_relativeTime);
+        dayjs.locale('pt-br');
+
+        // Elementos do DOM
+        const loginView = document.getElementById('login-view');
+        const appHeader = document.getElementById('app-header');
+        const contentContainer = document.getElementById('content-container');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const loginSubmitBtn = document.getElementById('login-submit-btn');
+        const logoutButton = document.getElementById('logout-button');
+        const headerTitle = document.getElementById('header-title');
+        const currentUserId = document.getElementById('current-user-id');
+
+        // --- LÓGICA DE AUTENTICAÇÃO E ROTEAMENTO ---
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                currentUserId.textContent = `ID: ${user.uid.substring(0, 8)}`;
+                console.log("Usuário autenticado:", user.uid);
+                isAuthReady = true;
+                
+                loginSubmitBtn.disabled = false;
+                loginSubmitBtn.textContent = 'Entrar';
+
+                if(currentRole) {
+                    showView(currentRole);
+                }
+            } else {
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("Erro ao autenticar anonimamente:", error);
+                    loginError.textContent = "Erro de conexão. Tente novamente.";
+                }
+            }
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            loginError.textContent = '';
+
+            let role = null;
+            if (username === 'Triagem' && password === 'Triagem') {
+                role = 'triagem';
+            } else if (username === 'Entrega' && password === 'Entrega') {
+                role = 'entrega';
+            } else if (username === 'Admin' && password === 'Admin') {
+                role = 'admin';
+            } else {
+                loginError.textContent = 'Usuário ou senha incorretos.';
+            }
+            
+            if (role && isAuthReady) {
+                showView(role);
+            } else if (role && !isAuthReady) {
+                loginError.textContent = 'Aguardando autenticação...';
+            }
+        });
+
+        logoutButton.addEventListener('click', () => {
+            currentRole = null;
+            activeDeliveryId = null;
+            unsubscribeAll();
+            
+            document.querySelectorAll('.content-view').forEach(v => v.style.display = 'none');
+            contentContainer.style.display = 'none';
+            appHeader.style.display = 'none';
+            loginView.style.display = 'flex';
+        });
+
+        function showView(role) {
+            if (!isAuthReady) {
+                console.warn("Tentativa de mostrar view antes da autenticação estar pronta.");
+                return;
+            }
+            currentRole = role;
+            loginView.style.display = 'none';
+            appHeader.style.display = 'flex';
+            contentContainer.style.display = 'block';
+
+            document.querySelectorAll('.content-view').forEach(v => v.style.display = 'none');
+            
+            const view = document.getElementById(`${role}-view`);
+            view.style.display = 'block';
+
+            unsubscribeAll();
+
+            switch (role) {
+                case 'triagem':
+                    headerTitle.textContent = 'Painel de Triagem';
+                    initTriagemView();
+                    break;
+                case 'entrega':
+                    headerTitle.textContent = 'Painel do Entregador';
+                    initEntregaView();
+                    break;
+                case 'admin':
+                    headerTitle.textContent = 'Painel Administrativo';
+                    initAdminView();
+                    break;
+            }
+        }
+
+        function unsubscribeAll() {
+            unsubscribeListeners.forEach(unsub => unsub());
+            unsubscribeListeners = [];
+        }
+        
+        function getTodayDateString() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // --- MODAL DE CONFIRMAÇÃO ---
+        const modal = document.getElementById('confirmation-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        let confirmCallback = null;
+
+        function showConfirmationModal(title, body, onConfirm) {
+            modalTitle.textContent = title;
+            modalBody.textContent = body;
+            confirmCallback = onConfirm;
+            modal.classList.remove('hidden');
+        }
+
+        modalConfirmBtn.addEventListener('click', () => {
+            if (confirmCallback) {
+                confirmCallback();
+            }
+            modal.classList.add('hidden');
+        });
+        
+        modalCancelBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+
+        // --- VIEW DA TRIAGEM ---
+        function initTriagemView() {
+            const deliveryDateInput = document.getElementById('delivery-date');
+            deliveryDateInput.value = getTodayDateString();
+
+            const createDeliveryBtn = document.getElementById('create-delivery-btn');
+            const newDeliverySection = document.getElementById('new-delivery-section');
+            const newDeliveryTitle = document.getElementById('new-delivery-title');
+            const addLocationBtn = document.getElementById('add-location-btn');
+            const assignDeliveryBtn = document.getElementById('assign-delivery-btn');
+            const addDriverBtn = document.getElementById('add-driver-btn');
+
+            createDeliveryBtn.onclick = async () => {
+                const date = deliveryDateInput.value;
+                if (!date) {
+                    showConfirmationModal("Atenção", "Por favor, selecione uma data.", () => {});
+                    return;
+                }
+                const dateObj = new Date(date + 'T00:00:00');
+                
+                const q = query(collection(db, "deliveries"), where("creationDay", "==", date));
+                const querySnapshot = await getDocs(q);
+                const deliveryNumber = querySnapshot.size + 1;
+                const deliveryName = `Entrega #${deliveryNumber} - ${dayjs(dateObj).format('DD/MM/YYYY')}`;
+
+                const deliveryDoc = {
+                    name: deliveryName,
+                    creationDate: serverTimestamp(),
+                    creationDay: date,
+                    status: 'pending',
+                    driverId: null,
+                    driverName: null,
+                    locations: [],
+                    startTime: null,
+                    endTime: null,
+                };
+                
+                const docRef = await addDoc(collection(db, "deliveries"), deliveryDoc);
+                activeDeliveryId = docRef.id;
+                newDeliveryTitle.textContent = deliveryName;
+                newDeliverySection.classList.remove('hidden');
+                document.getElementById('new-delivery-locations').innerHTML = '';
+            };
+
+            addLocationBtn.onclick = async () => {
+                if (!activeDeliveryId) return;
+                const locationInput = document.getElementById('new-location');
+                const address = locationInput.value.trim();
+                if (address) {
+                    const deliveryRef = doc(db, "deliveries", activeDeliveryId);
+                    const deliverySnap = await getDoc(deliveryRef);
+                    if (deliverySnap.exists()) {
+                        const newLocations = [...deliverySnap.data().locations, { address, status: 'pending', completedAt: null, timeToNextMinutes: null }];
+                        await updateDoc(deliveryRef, { locations: newLocations });
+                        locationInput.value = '';
+                    }
+                }
+            };
+
+            assignDeliveryBtn.onclick = async () => {
+                if (!activeDeliveryId) return;
+                const driverSelect = document.getElementById('assign-driver');
+                const driverId = driverSelect.value;
+                const driverName = driverSelect.options[driverSelect.selectedIndex].text;
+
+                if (driverId) {
+                    showConfirmationModal(
+                        'Designar Entrega',
+                        `Você tem certeza que deseja designar esta entrega para ${driverName}?`,
+                        async () => {
+                            const deliveryRef = doc(db, "deliveries", activeDeliveryId);
+                            await updateDoc(deliveryRef, { 
+                                driverId, 
+                                driverName, 
+                                status: 'in-progress',
+                                startTime: serverTimestamp()
+                            });
+                            newDeliverySection.classList.add('hidden');
+                            activeDeliveryId = null;
+                        }
+                    );
+                }
+            };
+            
+            addDriverBtn.onclick = async () => {
+                const driverNameInput = document.getElementById('driver-name');
+                const name = driverNameInput.value.trim();
+                if (name) {
+                    await addDoc(collection(db, "drivers"), { name });
+                    driverNameInput.value = '';
+                }
+            };
+
+            const unsubDrivers = onSnapshot(collection(db, "drivers"), (snapshot) => {
+                const driversList = document.getElementById('drivers-list');
+                const assignDriverSelect = document.getElementById('assign-driver');
+                driversList.innerHTML = '';
+                assignDriverSelect.innerHTML = '<option value="">Selecione um entregador</option>';
+                snapshot.forEach(doc => {
+                    const driver = doc.data();
+                    driversList.innerHTML += `
+                        <div class="flex justify-between items-center p-2 bg-gray-100 rounded-lg">
+                            <span>${driver.name}</span>
+                            <button data-driver-id="${doc.id}" class="delete-driver-btn text-red-500 hover:text-red-700 font-bold text-lg">&times;</button>
+                        </div>`;
+                    assignDriverSelect.innerHTML += `<option value="${doc.id}">${driver.name}</option>`;
+                });
+            }, (error) => console.error("Erro no listener de entregadores: ", error));
+            unsubscribeListeners.push(unsubDrivers);
+
+            const unsubDeliveries = onSnapshot(query(collection(db, "deliveries"), where("creationDay", "==", getTodayDateString())), (snapshot) => {
+                const triagemDeliveriesList = document.getElementById('triagem-deliveries-list');
+                triagemDeliveriesList.innerHTML = '';
+                if(snapshot.empty) {
+                    triagemDeliveriesList.innerHTML = '<p class="text-gray-500">Nenhuma entrega para hoje ainda.</p>';
+                }
+                snapshot.docs.sort((a, b) => a.data().name.localeCompare(b.data().name)).forEach(doc => {
+                    const delivery = doc.data();
+                    const statusClass = delivery.status === 'completed' ? 'text-green-600' : (delivery.status === 'in-progress' ? 'text-blue-600' : 'text-yellow-600');
+                    const statusText = delivery.status === 'completed' ? 'Concluída' : (delivery.status === 'in-progress' ? 'Em Andamento' : 'Pendente');
+
+                    let deliveryHTML = `
+                        <div class="p-4 border rounded-lg">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="font-bold">${delivery.name}</h4>
+                                    <p class="text-sm">Entregador: ${delivery.driverName || 'N/A'}</p>
+                                </div>
+                                <span class="font-semibold ${statusClass}">${statusText}</span>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600">
+                                ${delivery.locations.map(loc => `
+                                    <div class="flex items-center gap-2">
+                                        <span class="${loc.status === 'completed' ? 'text-green-500' : ''}">${loc.status === 'completed' ? '✓' : '•'}</span>
+                                        <span>${loc.address}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    triagemDeliveriesList.innerHTML += deliveryHTML;
+                });
+            }, (error) => console.error("Erro no listener de entregas (triagem): ", error));
+            unsubscribeListeners.push(unsubDeliveries);
+            
+            if (activeDeliveryId) {
+                const unsubActiveDelivery = onSnapshot(doc(db, "deliveries", activeDeliveryId), (doc) => {
+                    if(doc.exists()){
+                        const delivery = doc.data();
+                        const locationsDiv = document.getElementById('new-delivery-locations');
+                        locationsDiv.innerHTML = '';
+                        delivery.locations.forEach(loc => {
+                            locationsDiv.innerHTML += `<div class="p-2 bg-gray-100 rounded">${loc.address}</div>`;
+                        });
+                    }
+                }, (error) => console.error("Erro no listener de entrega ativa: ", error));
+                unsubscribeListeners.push(unsubActiveDelivery);
+            }
+        }
+
+        // --- VIEW DO ENTREGADOR ---
+        function initEntregaView() {
+            const driverSelect = document.getElementById('select-driver-profile');
+            const myDeliverySection = document.getElementById('my-delivery-section');
+            const noDeliveryMessage = document.getElementById('no-delivery-message');
+            
+            const unsubDrivers = onSnapshot(collection(db, "drivers"), (snapshot) => {
+                const currentDriverId = driverSelect.value;
+                driverSelect.innerHTML = '<option value="">Selecione seu nome para ver a entrega</option>';
+                snapshot.forEach(doc => {
+                    driverSelect.innerHTML += `<option value="${doc.id}">${doc.data().name}</option>`;
+                });
+                driverSelect.value = currentDriverId;
+            }, (error) => console.error("Erro no listener de entregadores (entrega): ", error));
+            unsubscribeListeners.push(unsubDrivers);
+            
+            driverSelect.onchange = () => {
+                const currentDriverId = driverSelect.value;
+                while(unsubscribeListeners.length > 1) {
+                    unsubscribeListeners.pop()();
+                }
+                
+                if (currentDriverId) {
+                    const q = query(collection(db, "deliveries"), 
+                        where("driverId", "==", currentDriverId),
+                        where("status", "==", "in-progress")
+                    );
+                    const unsubDelivery = onSnapshot(q, (snapshot) => {
+                        if (snapshot.empty) {
+                            myDeliverySection.classList.add('hidden');
+                            noDeliveryMessage.classList.remove('hidden');
+                        } else {
+                            const deliveryDoc = snapshot.docs[0];
+                            const delivery = deliveryDoc.data();
+                            document.getElementById('my-delivery-title').textContent = delivery.name;
+                            const locationsDiv = document.getElementById('my-delivery-locations');
+                            locationsDiv.innerHTML = '';
+                            
+                            delivery.locations.forEach((loc, index) => {
+                                const isCompleted = loc.status === 'completed';
+                                const canCheck = !isCompleted && (index === 0 || delivery.locations[index - 1].status === 'completed');
+                                
+                                locationsDiv.innerHTML += `
+                                    <div class="flex items-center justify-between p-3 rounded-lg ${isCompleted ? 'bg-green-100' : 'bg-gray-100'}">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xl font-bold ${isCompleted ? 'text-green-500' : 'text-gray-400'}">${index + 1}</span>
+                                            <div>
+                                                <p class="font-semibold ${isCompleted ? 'line-through' : ''}">${loc.address}</p>
+                                                ${isCompleted && loc.completedAt ? `<p class="text-xs text-gray-500">Concluído ${dayjs(loc.completedAt.toDate()).fromNow()}</p>` : ''}
+                                                ${delivery.locations[index-1]?.timeToNextMinutes ? `<p class="text-xs text-blue-500">Tempo do trecho anterior: ${delivery.locations[index-1].timeToNextMinutes} min</p>` : ''}
+                                            </div>
+                                        </div>
+                                        ${canCheck ? `<button data-doc-id="${deliveryDoc.id}" data-index="${index}" class="check-location-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Check</button>` : ''}
+                                    </div>
+                                `;
+                            });
+                            
+                            myDeliverySection.classList.remove('hidden');
+                            noDeliveryMessage.classList.add('hidden');
+                        }
+                    }, (error) => console.error("Erro no listener da minha entrega: ", error));
+                    unsubscribeListeners.push(unsubDelivery);
+                } else {
+                    myDeliverySection.classList.add('hidden');
+                    noDeliveryMessage.classList.remove('hidden');
+                }
+            };
+        }
+
+        // --- VIEW DO ADMIN ---
+        function initAdminView() {
+            const dateFilter = document.getElementById('admin-date-filter');
+            dateFilter.value = getTodayDateString();
+
+            function loadAdminData() {
+                unsubscribeAll();
+                const selectedDate = dateFilter.value;
+                
+                const q = query(collection(db, "deliveries"), where("creationDay", "==", selectedDate));
+
+                const unsub = onSnapshot(q, (snapshot) => {
+                    const deliveries = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+                    
+                    const inProgress = deliveries.filter(d => d.status === 'in-progress');
+                    const completed = deliveries.filter(d => d.status === 'completed');
+                    
+                    document.getElementById('drivers-on-street').textContent = new Set(inProgress.map(d => d.driverId)).size;
+                    document.getElementById('deliveries-in-progress').textContent = inProgress.length;
+                    document.getElementById('deliveries-completed-today').textContent = completed.length;
+
+                    const allTimes = deliveries
+                        .flatMap(d => d.locations)
+                        .map(l => l.timeToNextMinutes)
+                        .filter(t => t !== null && t >= 0);
+                    
+                    if (allTimes.length > 0) {
+                        const avgTime = allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
+                        document.getElementById('avg-time-per-leg').textContent = `${avgTime.toFixed(1)} min`;
+                    } else {
+                        document.getElementById('avg-time-per-leg').textContent = '--';
+                    }
+
+                    const overviewContainer = document.getElementById('admin-deliveries-overview');
+                    overviewContainer.innerHTML = '';
+                    if (deliveries.length === 0) {
+                        overviewContainer.innerHTML = '<p class="text-gray-500">Nenhuma entrega para a data selecionada.</p>';
+                    } else {
+                        deliveries.sort((a, b) => a.name.localeCompare(b.name)).forEach(delivery => {
+                            const completedCount = delivery.locations.filter(l => l.status === 'completed').length;
+                            const totalCount = delivery.locations.length;
+                            const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+                            const statusClass = delivery.status === 'completed' ? 'text-green-600' : (delivery.status === 'in-progress' ? 'text-blue-600' : 'text-yellow-600');
+                            const statusText = delivery.status === 'completed' ? 'Concluída' : (delivery.status === 'in-progress' ? 'Em Andamento' : 'Pendente');
+
+                            overviewContainer.innerHTML += `
+                                <div class="border p-4 rounded-lg">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <h4 class="font-bold">${delivery.name}</h4>
+                                            <p class="text-sm text-gray-600">Entregador: ${delivery.driverName || 'N/A'}</p>
+                                        </div>
+                                        <span class="font-semibold ${statusClass}">${statusText} (${completedCount}/${totalCount})</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }, (error) => console.error("Erro no listener de visão geral (admin): ", error));
+                unsubscribeListeners.push(unsub);
+
+                const thirtyDaysAgo = dayjs().subtract(30, 'day').format('YYYY-MM-DD');
+                const qLocations = query(collection(db, "deliveries"), where("creationDay", ">=", thirtyDaysAgo));
+                getDocs(qLocations).then(snapshot => {
+                    const locationCounts = {};
+                    snapshot.forEach(doc => {
+                        doc.data().locations.forEach(loc => {
+                            locationCounts[loc.address] = (locationCounts[loc.address] || 0) + 1;
+                        });
+                    });
+                    
+                    const sortedLocations = Object.entries(locationCounts).sort(([,a],[,b]) => b-a).slice(0, 10);
+                    const mostVisitedContainer = document.getElementById('most-visited-locations');
+                    mostVisitedContainer.innerHTML = '';
+                    if (sortedLocations.length === 0) {
+                        mostVisitedContainer.innerHTML = '<p class="text-gray-500">Sem dados de localização suficientes.</p>';
+                    } else {
+                        sortedLocations.forEach(([address, count], index) => {
+                            mostVisitedContainer.innerHTML += `
+                                <div class="flex items-center justify-between p-2 ${index % 2 === 0 ? 'bg-gray-50' : ''}">
+                                    <span>${index + 1}. ${address}</span>
+                                    <span class="font-bold brand-color">${count} visita(s)</span>
+                                </div>
+                            `;
+                        });
+                    }
+                });
+            }
+
+            dateFilter.onchange = loadAdminData;
+            loadAdminData();
+        }
+
+        // --- LISTENER DE EVENTOS GLOBAIS ---
+        document.addEventListener('click', async (e) => {
+            // Botão de check na entrega
+            if (e.target && e.target.classList.contains('check-location-btn')) {
+                const btn = e.target;
+                btn.disabled = true;
+                btn.textContent = '...';
+                const docId = btn.dataset.docId;
+                const index = parseInt(btn.dataset.index);
+                
+                const deliveryRef = doc(db, "deliveries", docId);
+                const deliverySnap = await getDoc(deliveryRef);
+                if (deliverySnap.exists()) {
+                    const delivery = deliverySnap.data();
+                    const updatedLocations = [...delivery.locations];
+                    const now = new Date();
+                    updatedLocations[index].status = 'completed';
+                    updatedLocations[index].completedAt = now;
+
+                    if (index > 0 && updatedLocations[index - 1].completedAt) {
+                        const prevTime = updatedLocations[index - 1].completedAt.toDate ? updatedLocations[index - 1].completedAt.toDate() : new Date(updatedLocations[index - 1].completedAt);
+                        const diffMinutes = Math.round((now - prevTime) / (1000 * 60));
+                        updatedLocations[index - 1].timeToNextMinutes = diffMinutes;
+                    }
+
+                    const allCompleted = updatedLocations.every(l => l.status === 'completed');
+                    
+                    const updatePayload = { locations: updatedLocations };
+                    if (allCompleted) {
+                        updatePayload.status = 'completed';
+                        updatePayload.endTime = serverTimestamp();
+                    }
+                    
+                    await updateDoc(deliveryRef, updatePayload);
+                }
+            }
+
+            // Botão de excluir entregador
+            if (e.target && e.target.classList.contains('delete-driver-btn')) {
+                const driverId = e.target.dataset.driverId;
+                const driverName = e.target.previousElementSibling.textContent;
+                showConfirmationModal(
+                    'Excluir Entregador',
+                    `Você tem certeza que deseja excluir ${driverName}? Esta ação não pode ser desfeita.`,
+                    async () => {
+                        await deleteDoc(doc(db, "drivers", driverId));
+                    }
+                );
+            }
+        });
+
+    </script>
+</body>
+</html>
