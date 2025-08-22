@@ -448,7 +448,7 @@
                     const deliveryRef = doc(deliveriesCol, activeDeliveryId);
                     const deliverySnap = await getDoc(deliveryRef);
                     if (deliverySnap.exists()) {
-                        const newLocations = [...deliverySnap.data().locations, { address, status: 'pending', completedAt: null }];
+                        const newLocations = [...deliverySnap.data().locations, { address, status: 'pending', completedAt: null, timeToNextMinutes: null }];
                         await updateDoc(deliveryRef, { locations: newLocations });
                         locationInput.value = '';
                     }
@@ -477,7 +477,8 @@
                     return {
                         address: el.dataset.address,
                         status: 'pending',
-                        completedAt: null
+                        completedAt: null,
+                        timeToNextMinutes: null
                     }
                 });
 
@@ -699,6 +700,7 @@
                                             <div>
                                                 <p class="font-semibold ${isCompleted ? 'line-through' : ''}">${loc.address}</p>
                                                 ${isCompleted && loc.completedAt ? `<p class="text-xs text-gray-500">Concluído ${dayjs(loc.completedAt.toDate()).fromNow()} (${dayjs(loc.completedAt.toDate()).format('HH:mm')})</p>` : ''}
+                                                ${loc.timeToNextMinutes ? `<p class="text-xs text-blue-500">Tempo do trecho anterior: ${loc.timeToNextMinutes} min</p>` : ''}
                                             </div>
                                         </div>
                                         ${canCheck ? `<button data-doc-id="${deliveryDoc.id}" data-index="${index}" class="check-location-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Check</button>` : ''}
@@ -833,8 +835,24 @@
                 if (deliverySnap.exists()) {
                     const delivery = deliverySnap.data();
                     const updatedLocations = [...delivery.locations];
+                    const now = new Date();
+
+                    // Marca o local atual como concluído com o horário do cliente
                     updatedLocations[index].status = 'completed';
-                    updatedLocations[index].completedAt = serverTimestamp();
+                    updatedLocations[index].completedAt = now;
+                    
+                    // Calcula o tempo desde o ponto anterior, se houver
+                    if (index > 0 && delivery.locations[index - 1].completedAt) {
+                        const prevTime = delivery.locations[index - 1].completedAt.toDate();
+                        const diffMinutes = Math.round((now.getTime() - prevTime.getTime()) / (1000 * 60));
+                        updatedLocations[index - 1].timeToNextMinutes = diffMinutes;
+                    } else if (delivery.startTime) {
+                        // Se for o primeiro ponto, calcula o tempo desde o início da entrega
+                        const startTime = delivery.startTime.toDate();
+                        const diffMinutes = Math.round((now.getTime() - startTime.getTime()) / (1000 * 60));
+                        // Armazenamos o tempo do primeiro trecho no próprio local
+                        updatedLocations[index].timeToNextMinutes = diffMinutes; 
+                    }
                     
                     await updateDoc(deliveryRef, { locations: updatedLocations });
                     sendNotification(`Check em ${updatedLocations[index].address}`, `Entrega de ${delivery.driverName}`);
