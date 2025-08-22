@@ -35,14 +35,14 @@
     <div id="app-container" class="min-h-screen flex flex-col">
 
         <!-- Header (Visível após o login) -->
-        <header id="app-header" class="bg-white shadow-md p-4 justify-between items-center hidden">
+        <header id="app-header" class="bg-white shadow-md p-4 flex flex-wrap justify-between items-center gap-4 hidden">
             <div class="flex items-center space-x-4">
-                <div class="text-xl font-bold brand-color tracking-wide">SILVA TINTAS AUTOMOTIVAS</div>
-                <h1 id="header-title" class="text-xl font-bold brand-color"></h1>
+                <div class="text-lg sm:text-xl font-bold brand-color tracking-wide">SILVA TINTAS AUTOMOTIVAS</div>
+                <h1 id="header-title" class="text-lg sm:text-xl font-bold brand-color"></h1>
             </div>
             <div class="flex items-center space-x-4">
-                <span id="current-user-id" class="text-sm text-gray-500"></span>
-                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                <span id="current-user-id" class="text-xs sm:text-sm text-gray-500"></span>
+                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-lg transition-colors text-sm">
                     Sair
                 </button>
             </div>
@@ -50,12 +50,12 @@
 
         <!-- Tela de Login -->
         <div id="login-view" class="flex-grow flex items-center justify-center p-4">
-            <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+            <div class="w-full max-w-md bg-white p-6 sm:p-8 rounded-xl shadow-lg">
                 <div class="text-center mb-6">
                     <h1 class="text-3xl font-bold brand-color tracking-wide">SILVA TINTAS</h1>
                     <p class="text-sm text-gray-500">AUTOMOTIVAS</p>
                 </div>
-                <h2 class="text-2xl font-bold text-center brand-color mb-6">Sistema de Gestão de Entregas</h2>
+                <h2 class="text-xl sm:text-2xl font-bold text-center brand-color mb-6">Sistema de Gestão de Entregas</h2>
                 <form id="login-form">
                     <div class="mb-4">
                         <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
@@ -74,7 +74,7 @@
         </div>
 
         <!-- Conteúdo das Views (Triagem, Entrega, Admin) -->
-        <main id="content-container" class="flex-grow p-4 md:p-6 lg:p-8 hidden">
+        <main id="content-container" class="flex-grow p-4 sm:p-6 lg:p-8 hidden">
             <!-- View da Triagem -->
             <div id="triagem-view" class="content-view space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -82,7 +82,7 @@
                     <div class="bg-white p-6 rounded-xl shadow-md space-y-4">
                         <h3 id="form-title" class="text-xl font-bold brand-color border-b pb-2">Criar Nova Entrega</h3>
                         <div id="create-section">
-                            <div class="flex items-end gap-4">
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
                                 <div class="flex-grow">
                                     <label for="delivery-date" class="block text-sm font-medium text-gray-700">Data da Entrega</label>
                                     <input type="date" id="delivery-date" class="mt-1 w-full p-2 border rounded-lg">
@@ -108,7 +108,7 @@
                             </div>
                              <div class="flex justify-end gap-2 mt-4">
                                 <button id="cancel-edit-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg">Cancelar</button>
-                                <button id="save-changes-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg">Salvar Alterações</button>
+                                <button id="save-changes-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg">Salvar</button>
                             </div>
                         </div>
                     </div>
@@ -153,22 +153,22 @@
                     <input type="date" id="admin-date-filter" class="ml-2 p-2 border rounded-lg">
                 </div>
                 <!-- Cards de Métricas -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
                         <h4 class="font-bold text-gray-600">Entregadores na Rua</h4>
-                        <p id="drivers-on-street" class="text-4xl font-bold brand-color">0</p>
+                        <p id="drivers-on-street" class="text-3xl sm:text-4xl font-bold brand-color">0</p>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
                         <h4 class="font-bold text-gray-600">Entregas em Andamento</h4>
-                        <p id="deliveries-in-progress" class="text-4xl font-bold brand-color">0</p>
+                        <p id="deliveries-in-progress" class="text-3xl sm:text-4xl font-bold brand-color">0</p>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
                         <h4 class="font-bold text-gray-600">Entregas Concluídas Hoje</h4>
-                        <p id="deliveries-completed-today" class="text-4xl font-bold brand-color">0</p>
+                        <p id="deliveries-completed-today" class="text-3xl sm:text-4xl font-bold brand-color">0</p>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-between">
                         <h4 class="font-bold text-gray-600">Tempo Médio por Trecho</h4>
-                        <p id="avg-time-per-leg" class="text-4xl font-bold brand-color">--</p>
+                        <p id="avg-time-per-leg" class="text-3xl sm:text-4xl font-bold brand-color">--</p>
                     </div>
                 </div>
                 <!-- Visão Geral das Entregas -->
@@ -186,8 +186,8 @@
     </div>
 
     <!-- Modal de Confirmação -->
-    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full">
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full mx-4">
             <h3 class="text-xl font-bold mb-4" id="modal-title">Confirmar Ação</h3>
             <p id="modal-body">Você tem certeza?</p>
             <div class="mt-6 flex justify-end space-x-4">
@@ -512,13 +512,13 @@
 
                     let deliveryHTML = `
                         <div class="p-4 border rounded-lg">
-                            <div class="flex justify-between items-start">
-                                <div>
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                                <div class="mb-2 sm:mb-0">
                                     <h4 class="font-bold">${delivery.name}</h4>
                                     <p class="text-sm">Entregador: ${delivery.driverName || 'N/A'}</p>
                                     <p class="text-sm"><span class="font-semibold ${statusClass}">${statusText}</span></p>
                                 </div>
-                                <div class="flex gap-2">
+                                <div class="flex gap-2 self-end sm:self-center">
                                     ${isEditable ? `<button data-delivery-id="${doc.id}" class="edit-delivery-btn bg-yellow-500 text-white text-xs font-bold py-1 px-2 rounded">Editar</button>` : ''}
                                     <button data-delivery-id="${doc.id}" class="delete-delivery-btn bg-red-500 text-white text-xs font-bold py-1 px-2 rounded">Excluir</button>
                                 </div>
@@ -594,8 +594,8 @@
             isEditing = false;
             if (sortable) sortable.destroy();
             sortable = null;
-            unsubscribeAll(); // Limpa listeners, especialmente o da entrega ativa
-            initTriagemView(); // Reinicia a view para garantir que tudo está atualizado
+            unsubscribeAll(); 
+            initTriagemView(); 
 
             document.getElementById('form-title').textContent = 'Criar Nova Entrega';
             document.getElementById('create-section').classList.remove('hidden');
